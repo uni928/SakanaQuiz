@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>魚の平均重量 2択クイズ（サンプル版）</title>
+  <style>
+    :root{ --bg:#0f172a; --card:#111827; --muted:#64748b; --text:#e5e7eb; --border:#1f2937; --ok:#22c55e; --ng:#ef4444 }
+    html,body{height:100%}
+    body{ margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, "Hiragino Kaku Gothic ProN", Meiryo, sans-serif; background: radial-gradient(1200px 800px at 70% -10%, #0b1227, var(--bg)); color: var(--text); }
+    .container{max-width:900px; margin:24px auto; padding:0 16px}
+    header{display:flex; gap:12px; align-items:center; justify-content:space-between; margin-bottom:16px}
+    h1{font-size: clamp(22px, 3.5vw, 34px); margin:0}
+    .subtitle{color:var(--muted); font-size:14px}
+    .pill{display:inline-block; padding:2px 8px; font-size:12px; border-radius:999px; border:1px solid var(--border); color:#cbd5e1}
+    .card{ background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.00)); border: 1px solid var(--border); border-radius:18px; padding:16px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+    .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+    .quiz{ display:grid; gap:12px; grid-template-rows:auto auto auto 1fr auto }
+    .choices{ display:grid; grid-template-columns: 1fr 1fr; gap:14px }
+    @media (max-width: 600px){ .choices{ grid-template-columns: 1fr } }
+    .choice{ padding:18px; border-radius:16px; border:1px solid var(--border); background: linear-gradient(180deg, rgba(148,163,184,.06), rgba(148,163,184,.02)); text-align:left; position:relative; min-height:98px }
+    .choice h3{ margin:0 0 6px 0; font-size:18px; color: #fff;}
+    .choice .weight{ font-size:13px; color:#a3b3c7 }
+    .choice .badge{ position:absolute; top:10px; right:12px }
+    .choice.correct{ outline:2px solid rgba(34,197,94,.5) }
+    .choice.wrong{ outline:2px solid rgba(239,68,68,.5) }
+    .score{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; font-size:14px; color:#b6c1cf }
+    .score b{ color:#e2e8f0 }
+    .toast{ font-size:14px; padding:10px 12px; border-radius:10px; border:1px solid var(--border); background:#0b1220 }
+    .kbd{ border:1px solid var(--border); padding:2px 6px; border-radius:6px; background:#0b1220; font-size:12px }
+    footer{margin-top:20px; color:#8aa0b6; font-size:12px}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>魚の平均重量 2択クイズ</h1>
+        <div class="subtitle">サンプルデータのみで動作する簡易版。平均重量が<strong>重い方</strong>を選ぶクイズです。</div>
+      </div>
+      <div><span class="pill">登録機能なし（固定サンプル）</span></div>
+    </header>
+
+    <section class="card quiz">
+      <div class="row" style="justify-content:space-between">
+        <h2 style="margin:0; font-size:18px">クイズ</h2>
+        <div class="subtitle">ショートカット: <span class="kbd">1</span>/<span class="kbd">2</span> で選択、<span class="kbd">N</span> で次へ</div>
+      </div>
+
+      <div class="score">
+        <div>正答: <b id="correctCnt">0</b></div>
+        <div>出題: <b id="totalCnt">0</b></div>
+        <div>正答率: <b id="acc">0%</b></div>
+        <div>連続正答: <b id="streak">0</b></div>
+      </div>
+
+      <div id="status" class="toast">「出題する」を押すと始まります。</div>
+
+      <div class="choices">
+        <button id="choiceA" class="choice" disabled>
+          <span class="badge pill">A</span>
+          <h3 id="nameA">—</h3>
+          <div class="weight" id="weightA">—</div>
+        </button>
+        <button id="choiceB" class="choice" disabled>
+          <span class="badge pill">B</span>
+          <h3 id="nameB">—</h3>
+          <div class="weight" id="weightB">—</div>
+        </button>
+      </div>
+
+      <div class="row">
+        <button id="nextBtn">出題する</button>
+        <button id="revealBtn" disabled>答えを見る</button>
+        <button id="resetScoreBtn" style="margin-left:auto">スコアをリセット</button>
+      </div>
+    </section>
+
+    <footer>© 2025 平均重量2択クイズ（サンプル版） — 推測の目安値で構成しています。</footer>
+  </div>
+
+  <script>
+    // ===== サンプル（推測ベース。すべて目安の平均重量・g換算） =====
+    const SAMPLE = [
+      {name:"ジンベエザメ", weight_g: 12000000},
+      {name:"ホホジロザメ", weight_g: 1100000},
+      {name:"オヒョウ", weight_g: 100000},
+      {name:"マグロ", weight_g: 200000},
+      {name:"カジキ", weight_g: 150000},
+      {name:"マンボウ", weight_g: 1000000},
+      {name:"ブリ", weight_g: 6000},
+      {name:"ハマチ", weight_g: 3500},
+      {name:"カツオ", weight_g: 5000},
+      {name:"サーモン", weight_g: 4000},
+      {name:"タイ", weight_g: 3000},
+      {name:"ヒラメ", weight_g: 2500},
+      {name:"キンメダイ", weight_g: 2500},
+      {name:"タラ", weight_g: 2500},
+      {name:"ホッケ", weight_g: 2000},
+      {name:"フグ", weight_g: 2000},
+      {name:"コイ", weight_g: 2000},
+      {name:"ウナギ", weight_g: 600},
+      {name:"ニジマス", weight_g: 800},
+      {name:"アユ", weight_g: 150},
+      {name:"ヤマメ", weight_g: 250},
+      {name:"サバ", weight_g: 1200},
+      {name:"アジ", weight_g: 300},
+      {name:"サンマ", weight_g: 180},
+      {name:"イワシ", weight_g: 100},
+      {name:"カレイ", weight_g: 1500},
+      {name:"メバル", weight_g: 500},
+      {name:"カマス", weight_g: 700},
+      {name:"カワハギ", weight_g: 400},
+      {name:"ボラ", weight_g: 1500},
+      {name:"スズキ", weight_g: 3000},
+      {name:"タチウオ", weight_g: 1200},
+      {name:"ブダイ", weight_g: 1200},
+      {name:"アイナメ", weight_g: 800},
+      {name:"ハタハタ", weight_g: 120},
+      {name:"シシャモ", weight_g: 25},
+      {name:"ドジョウ", weight_g: 50},
+      {name:"メダカ", weight_g: 5}
+    ];
+
+    // ===== ユーティリティ =====
+    const $ = sel => document.querySelector(sel);
+    const fmtWeight = g => g >= 1000 ? (Math.round(g/100)/10).toFixed(1)+" kg" : Math.round(g)+" g";
+    const pairKey = (id1, id2) => id1 < id2 ? id1 + '|' + id2 : id2 + '|' + id1;
+
+    // ===== 状態 =====
+    const fishList = SAMPLE.map((it, idx) => ({ id: String(idx+1), ...it }));
+    let currentPair = null; // {a,b}
+    let heavierId = null; // id or null(equal)
+    let answered = false;
+    let lastPairKey = null;
+    let correct = 0, total = 0, streak = 0;
+
+    // ===== DOM =====
+    const statusEl = $('#status');
+    const choiceA = $('#choiceA');
+    const choiceB = $('#choiceB');
+    const nameA = $('#nameA');
+    const nameB = $('#nameB');
+    const weightA = $('#weightA');
+    const weightB = $('#weightB');
+    const correctCnt = $('#correctCnt');
+    const totalCnt = $('#totalCnt');
+    const accEl = $('#acc');
+    const streakEl = $('#streak');
+    const nextBtn = $('#nextBtn');
+    const revealBtn = $('#revealBtn');
+    const resetScoreBtn = $('#resetScoreBtn');
+
+    // ===== クイズロジック =====
+    function randomPair(){
+      for (let tries=0; tries<30; tries++){
+        const i = Math.floor(Math.random()*fishList.length);
+        let j = Math.floor(Math.random()*fishList.length);
+        if (j===i) j = (j+1) % fishList.length;
+        const a = fishList[i], b = fishList[j];
+        const key = pairKey(a.id, b.id);
+        if (key !== lastPairKey) return {a,b};
+      }
+      const i = Math.floor(Math.random()*fishList.length);
+      let j = Math.floor(Math.random()*fishList.length);
+      if (j===i) j = (j+1) % fishList.length;
+      return {a: fishList[i], b: fishList[j]};
+    }
+
+    function newQuestion(){
+      const p = randomPair();
+      currentPair = p; answered = false;
+      lastPairKey = pairKey(p.a.id, p.b.id);
+      nameA.textContent = p.a.name; nameB.textContent = p.b.name;
+      weightA.textContent = '—'; weightB.textContent = '—';
+      choiceA.classList.remove('correct','wrong');
+      choiceB.classList.remove('correct','wrong');
+      heavierId = p.a.weight_g === p.b.weight_g ? null : (p.a.weight_g > p.b.weight_g ? p.a.id : p.b.id);
+      statusEl.textContent = 'どちらの平均重量が重い？ A または B を選んでください。';
+      choiceA.disabled = false; choiceB.disabled = false; revealBtn.disabled = false;
+      nextBtn.textContent = total === 0 ? '出題する' : '次の問題';
+    }
+
+    function reveal(){
+      if (!currentPair) return;
+      weightA.textContent = fmtWeight(currentPair.a.weight_g);
+      weightB.textContent = fmtWeight(currentPair.b.weight_g);
+    }
+
+    function answer(which){
+      if (!currentPair || answered) return;
+      answered = true; reveal();
+      const chosen = which==='A'? currentPair.a : currentPair.b;
+      const other = which==='A'? currentPair.b : currentPair.a;
+      const chosenBtn = which==='A'? choiceA : choiceB;
+      const otherBtn = which==='A'? choiceB : choiceA;
+      const ok = (heavierId===null) || (chosen.id===heavierId);
+      if (ok){ chosenBtn.classList.add('correct'); statusEl.textContent = `正解！ ${chosen.name} の方が重いです。`; correct++; streak++; }
+      else { chosenBtn.classList.add('wrong'); otherBtn.classList.add('correct'); statusEl.textContent = `残念… 正解は『${heavierId===currentPair.a.id?currentPair.a.name:currentPair.b.name}』です。`; streak = 0; }
+      total++; updateScore(); choiceA.disabled = true; choiceB.disabled = true; nextBtn.textContent = '次の問題';
+    }
+
+    function updateScore(){
+      correctCnt.textContent = String(correct);
+      totalCnt.textContent = String(total);
+      const acc = total ? Math.round((correct/total)*100) : 0;
+      accEl.textContent = acc + '%';
+      streakEl.textContent = String(streak);
+    }
+
+    // ===== イベント =====
+    nextBtn.addEventListener('click', newQuestion);
+    revealBtn.addEventListener('click', reveal);
+    resetScoreBtn.addEventListener('click', ()=>{ correct=0; total=0; streak=0; updateScore(); statusEl.textContent='スコアをリセットしました。'; });
+    choiceA.addEventListener('click', ()=>answer('A'));
+    choiceB.addEventListener('click', ()=>answer('B'));
+    window.addEventListener('keydown', (e)=>{
+      if (e.key==='1'){ e.preventDefault(); if (!choiceA.disabled) answer('A'); }
+      if (e.key==='2'){ e.preventDefault(); if (!choiceB.disabled) answer('B'); }
+      if (e.key.toLowerCase()==='n'){ e.preventDefault(); newQuestion(); }
+    });
+  </script>
+</body>
+</html>
